@@ -1,2 +1,7 @@
+InfraView/
 .InfraView/
 __pycache__/
+*.pyc
+*.pyd
+*.dll
+*.lib
