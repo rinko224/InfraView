@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: pygrabber
+Version: 0.1
+Summary: Module for grabbing live video images using DirectShow
+Home-page: https://github.com/andreaschiavinato/python_grabber
+Author: andreaschiavinato
+Author-email: UNKNOWN
+License: MIT
+Platform: UNKNOWN
+Requires-Dist: comtypes (>=1.1.7)
+Requires-Dist: numpy (>=1.17.3)
+
+Module for grabbing live video images using DirectShow
+
+
