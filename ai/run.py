@@ -1,5 +1,10 @@
 # run.py
-from component.main_ui import start_system
+import sys
+from PySide2.QtWidgets import QApplication
+from component.main_ui import MainUI
 
 if __name__ == '__main__':
-    start_system()
+    app = QApplication(sys.argv)
+    window = MainUI()
+    window.show()
+    sys.exit(app.exec_())

@@ -1,8 +1,13 @@
 # component/main_ui.py
+from PySide2.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
+from PySide2.QtCore import QTimer, Qt, QFile
+from PySide2.QtGui import QImage, QPixmap
+from PySide2.QtUiTools import QUiLoader
 import cv2
 import numpy as np
 import time
 import torch
+
 
 # 引用组件
 from . import config
@@ -15,6 +20,126 @@ from .database_manager import FaceLibrary
 from .driver_camera import HikCamera
 from .driver_util import unpack_thermal_frame
 from .viz_heatmap import process_thermal_for_display
+
+loader = QUiLoader()
+class MainUI(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        ui_file = QFile("component/ui/display.ui")
+        ui_file.open(QFile.ReadWrite)
+        self.ui = loader.load(ui_file, self)
+        ui_file.close()
+
+        self.setWindowTitle("Thermal Recognition System")
+        self.resize(900, 500)
+
+        # ——— 一些基本属性 ———
+        self.rotation_angle = 0
+
+        # ——— 左边视频区域 ———
+        self.video_label = self.ui.findChild(QLabel, "video_label")
+        self.video_label.setMinimumSize(1, 1) 
+        self.video_label.setStyleSheet("background:black;")
+
+        # ——— 右侧信息面板 ———
+        self.info_label = self.ui.findChild(QLabel, "info")
+        self.info_label.setMinimumSize(1, 1) 
+        self.info_label.setStyleSheet("background:#222; color:white; font-size:18px; padding:10px;")
+
+        # ——— 旋转按钮 ———
+        self.rotate_button = self.ui.findChild(QPushButton, "rotate")
+        self.rotate_button.clicked.connect(self.rotate_video)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0) 
+        layout.addWidget(self.ui)
+
+        self.video_label.setScaledContents(True)
+
+        self.init_system()
+        self.start_timer()
+    
+    def init_system(self):
+        self.detector = CustomTinyYOLO()
+        self.recognizer = MobileFaceNet_Thermal()
+        self.db = FaceLibrary()
+
+        self.camera = HikCamera(vendor_id=0x2BDF, product_id=0x0102)
+        if not self.camera.connect():
+            print("相机打开失败")
+            return
+        self.camera.start_stream()
+        self.prev_time = time.time()
+        self.last_embedding = None
+    
+    def start_timer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(30)  # 30ms 刷新一次
+    def update_frame(self):
+        # ——— 计算 FPS ———
+        now = time.time()
+        fps = 1 / (now - self.prev_time)
+        self.prev_time = now
+
+        # ——— 读取热成像数据 ———
+        full_frame = self.camera.read_next_frame()
+        if full_frame is None:
+            return
+
+        thermal = unpack_thermal_frame(full_frame)
+        if thermal is None:
+            return
+        
+        w = self.video_label.width()
+        h = self.video_label.height()
+        out_size = (w, h)
+
+        # ——— 生成展示图（彩色） ———
+        display_img = process_thermal_for_display(thermal, out_size, self.rotation_angle)
+
+        # ——— 生成 AI 图（灰度增强） ———
+        ai_img = preprocess.ai_normalization(thermal)
+
+        # ========== 模拟检测过程 ==========
+        boxes = self.detector.detect_dummy(ai_img.shape)
+        current_result = None
+
+        if boxes:
+            x1, y1, x2, y2, conf = boxes[0]
+            cv2.rectangle(display_img, (x1, y1), (x2, y2), (255,255,255), 2)
+
+            embedding = self.recognizer.extract_dummy(ai_img)
+            self.last_embedding = embedding
+
+            name, score = self.db.identify(embedding)
+            current_result = (name, score)
+
+        # ——— 用 QLabel 显示左侧图像 ———
+        qimg = self.numpy_to_qimage(display_img)
+        self.video_label.setPixmap(QPixmap.fromImage(qimg))
+
+        # ——— 更新右侧识别信息 ———
+        if current_result:
+            name, score = current_result
+            text = f"FPS: {fps:.1f}\n\n"
+            text += f"ID: {name}\n"
+            text += f"Conf: {score:.2f}\n"
+        else:
+            text = f"FPS: {fps:.1f}\n\nSearching..."
+
+        self.info_label.setText(text)
+
+    # ========== numpy → QImage ==========
+    def numpy_to_qimage(self, img):
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        return QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888).copy()
+    
+    def rotate_video(self):
+        self.rotation_angle += 90
+        self.rotation_angle %= 360
 
 def draw_ui(frame_display, results, fps):
     """

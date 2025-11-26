@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-def process_thermal_for_display(thermal_matrix):
+def process_thermal_for_display(thermal_matrix, out_size, rotation_angle=0):
     if thermal_matrix is None: return None
     clean_matrix = cv2.medianBlur(thermal_matrix.astype(np.float32), 3)
 
@@ -15,7 +15,13 @@ def process_thermal_for_display(thermal_matrix):
     
     thermal_img = cv2.applyColorMap(norm_img, cv2.COLORMAP_INFERNO)
     
-    thermal_img = cv2.resize(thermal_img, (512, 384), interpolation=cv2.INTER_LINEAR)
+    thermal_img = cv2.resize(thermal_img, out_size, interpolation=cv2.INTER_LINEAR)
+    if rotation_angle == 90:
+        thermal_img = cv2.rotate(thermal_img, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation_angle == 180:
+        thermal_img = cv2.rotate(thermal_img, cv2.ROTATE_180)
+    elif rotation_angle == 270:
+        thermal_img = cv2.rotate(thermal_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
     
     text = f"Max: {max_temp:.1f}C  Min: {min_temp:.1f}C"
     
