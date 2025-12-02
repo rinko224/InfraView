@@ -15,38 +15,55 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <widget class="QLabel" name="video_label">
+     <property name="text">
+      <string>TextLabel</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QVBoxLayout" name="verticalLayout_2" stretch="5,0,0,0">
      <item>
-      <widget class="QLabel" name="video_label">
+      <widget class="QLabel" name="info">
        <property name="text">
         <string>TextLabel</string>
        </property>
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout">
+      <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QLabel" name="info">
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="verticalLayout">
+         <item>
+          <widget class="QSpinBox" name="measure_w"/>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="measure_h"/>
+         </item>
+        </layout>
        </item>
        <item>
-        <widget class="QPushButton" name="rotate">
+        <widget class="QPushButton" name="measure_ensure">
          <property name="text">
-          <string>旋转90度</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="switch_2">
-         <property name="text">
-          <string>切换显示模式</string>
+          <string>确认修改</string>
          </property>
         </widget>
        </item>
       </layout>
+     </item>
+     <item>
+      <widget class="QPushButton" name="rotate">
+       <property name="text">
+        <string>旋转90度</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="switch_2">
+       <property name="text">
+        <string>切换显示模式</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

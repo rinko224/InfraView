@@ -58,6 +58,3 @@ def upack_YUV_frame(thermal_frame):
 
     if bgr_image is not None:
         cv2.imshow("Image", bgr_image)
-        
-
-    

@@ -1,5 +1,5 @@
 # component/main_ui.py
-from PySide2.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
+from PySide2.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox
 from PySide2.QtCore import QTimer, Qt, QFile
 from PySide2.QtGui import QImage, QPixmap
 from PySide2.QtUiTools import QUiLoader
@@ -19,7 +19,8 @@ from .database_manager import FaceLibrary
 # 引用您提供的驱动文件 (注意文件名已改为 driver_*)
 from .driver_camera import HikCamera
 from .driver_util import unpack_thermal_frame
-from .viz_heatmap import process_thermal_for_display
+from .matrix_util import process_thermal_for_display
+from .display_util import theraml_point_rotate
 
 loader = QUiLoader()
 class MainUI(QWidget):
@@ -36,11 +37,20 @@ class MainUI(QWidget):
 
         # ——— 一些基本属性 ———
         self.rotation_angle = 0
+        self.measure_pos = None
+        self.measure_info = ""
+        self.area_max_temp = None
+        self.area_min_temp = None
+        self.measure_h = None
+        self.measure_w = None
 
         # ——— 左边视频区域 ———
         self.video_label = self.ui.findChild(QLabel, "video_label")
         self.video_label.setMinimumSize(1, 1) 
         self.video_label.setStyleSheet("background:black;")
+
+        self.video_label.setMouseTracking(False)
+        self.video_label.installEventFilter(self)
 
         # ——— 右侧信息面板 ———
         self.info_label = self.ui.findChild(QLabel, "info")
@@ -50,6 +60,13 @@ class MainUI(QWidget):
         # ——— 旋转按钮 ———
         self.rotate_button = self.ui.findChild(QPushButton, "rotate")
         self.rotate_button.clicked.connect(self.rotate_video)
+
+        # ——— 区域测量相关 ———
+        self.measure_ensure = self.ui.findChild(QPushButton, "measure_ensure")
+        self.measure_ensure.clicked.connect(self.ensure_measure)
+
+        self.measure_area_h_edit = self.ui.findChild(QSpinBox, "measure_h")
+        self.measure_area_w_edit = self.ui.findChild(QSpinBox, "measure_w")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0) 
@@ -99,6 +116,7 @@ class MainUI(QWidget):
         # ——— 生成展示图（彩色） ———
         display_img = process_thermal_for_display(thermal, out_size, self.rotation_angle)
 
+        self._process_measurement(thermal, display_img, self.measure_h, self.measure_w)
         # ——— 生成 AI 图（灰度增强） ———
         ai_img = preprocess.ai_normalization(thermal)
 
@@ -126,6 +144,8 @@ class MainUI(QWidget):
             text = f"FPS: {fps:.1f}\n\n"
             text += f"ID: {name}\n"
             text += f"Conf: {score:.2f}\n"
+            if self.area_max_temp is not None and self.area_min_temp is not None:
+                text += f"{self.measure_info}\n"
         else:
             text = f"FPS: {fps:.1f}\n\nSearching..."
 
@@ -141,132 +161,73 @@ class MainUI(QWidget):
         self.rotation_angle += 90
         self.rotation_angle %= 360
 
-def draw_ui(frame_display, results, fps):
-    """
-    绘制前端 UI：左边是热成像图，右边是信息面板
-    """
-    # 创建一个 800x400 的大画布
-    canvas_height = 400
-    canvas_width = 800
-    canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+    def _process_measurement(self, thermal, display_img, measure_h, measure_w):
+        self.measure_info = ""
 
-    # 1. 左侧：放置热成像画面 (缩放到 400x300)
-    if frame_display is not None:
-        disp_h, disp_w = frame_display.shape[:2]
-        # 保持比例缩放
-        scale = min(400/disp_w, 400/disp_h)
-        new_w, new_h = int(disp_w * scale), int(disp_h * scale)
-        resized_frame = cv2.resize(frame_display, (new_w, new_h))
+        if self.measure_pos is None:
+            return
+        raw_h, raw_w = thermal.shape
+        norm_x, norm_y = self.measure_pos
+        h, w = display_img.shape[:2]
+
+        rx, ry = 0, 0
+        if self.rotation_angle == 0:
+            rx = int(norm_x * raw_w)
+            ry = int(norm_y * raw_h)
+        elif self.rotation_angle == 90:
+            rx = int(norm_y * raw_w)
+            ry = int((1 - norm_x) * raw_h)
+        elif self.rotation_angle == 180:
+            rx = int((1 - norm_x) * raw_w)
+            ry = int((1 - norm_y) * raw_h)
+        elif self.rotation_angle == 270:
+            rx = int((1 - norm_y) * raw_w)
+            ry = int(norm_x * raw_h)
+
+        rx = max(0, min(raw_w - 1, rx))
+        ry = max(0, min(raw_h - 1, ry))
+
+        y1, y2 = max(0, ry-measure_h//2), min(raw_h, ry+measure_h//2)
+        x1, x2 = max(0, rx-measure_w//2), min(raw_w, rx+measure_w//2)
+
+        measure_area = thermal[y1:y2, x1:x2]
         
-        # 居中放置在左半边 (0-400)
-        y_offset = (canvas_height - new_h) // 2
-        x_offset = (400 - new_w) // 2
-        canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized_frame
+        if measure_area.size > 0:
+            temp_max = np.percentile(measure_area.flatten(),98)
+            temp_min = np.min(measure_area)
+            self.area_max_temp = temp_max
+            self.area_min_temp = temp_min
+            self.measure_info = f"Max Temp: {temp_max:.2f}°C\nMin Temp: {temp_min:.2f}°C"
 
-    # 2. 右侧：信息面板
-    # 绘制分割线
-    cv2.line(canvas, (400, 0), (400, 400), (100, 100, 100), 2)
-    
-    # 绘制文字
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(canvas, "SYSTEM STATUS", (420, 40), font, 0.8, (0, 255, 0), 2)
-    cv2.putText(canvas, f"FPS: {fps:.1f}", (420, 80), font, 0.6, (200, 200, 200), 1)
-    
-    cv2.putText(canvas, "RECOGNITION:", (420, 140), font, 0.7, (0, 255, 255), 2)
-    
-    if results:
-        name, score, box = results
-        color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-        cv2.putText(canvas, f"ID: {name}", (420, 180), font, 0.8, color, 2)
-        cv2.putText(canvas, f"Conf: {score:.2f}", (420, 220), font, 0.6, (200, 200, 200), 1)
-    else:
-        cv2.putText(canvas, "Searching...", (420, 180), font, 0.8, (100, 100, 100), 2)
-
-    return canvas
-
-def start_system():
-    print("--- 启动热成像识别系统 ---")
-    
-    # 1. 初始化模型
-    detector = CustomTinyYOLO()
-    recognizer = MobileFaceNet_Thermal()
-    db = FaceLibrary()
-    
-    # 注意：此处应加载 .pth 权重
-    # try:
-    #     detector.load_state_dict(torch.load(config.DETECTOR_PATH))
-    #     recognizer.load_state_dict(torch.load(config.RECOGNIZER_PATH))
-    # except:
-    #     print("[警告] 未找到权重文件，将运行在演示模式")
-
-    # 2. 初始化相机
-    camera = HikCamera(vendor_id=0x2BDF, product_id=0x0102)
-    if not camera.connect():
-        return
-    camera.start_stream()
-    
-    # 3. 主循环
-    prev_time = time.time()
-    
-    try:
-        while True:
-            # 计算FPS
-            curr_time = time.time()
-            fps = 1 / (curr_time - prev_time) if (curr_time - prev_time) > 0 else 0
-            prev_time = curr_time
-
-            # A. 获取数据
-            full_frame = camera.read_next_frame()
-            if not full_frame:
-                continue
-                
-            thermal_matrix = unpack_thermal_frame(full_frame)
-            if thermal_matrix is None:
-                continue
-
-            # B. 处理用于显示的图像 (彩色热力图)
-            # 使用 viz_heatmap 中的逻辑生成给左侧框看的图
-            display_img = process_thermal_for_display(thermal_matrix)
-
-            # C. 处理用于 AI 的图像 (增强灰度图)
-            ai_img = preprocess.ai_normalization(thermal_matrix)
+            corners_thermal = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+            display_corners = [theraml_point_rotate(self.rotation_angle, tx, ty, raw_w, raw_h, w, h) for (tx, ty) in corners_thermal]
             
-            # D. 核心流程：检测 -> 识别
-            # 1. 假装检测到了人脸 (模拟检测器输出)
-            # 实际应为: boxes = detector(ai_img)
-            boxes = detector.detect_dummy(ai_img.shape) 
+            xs = [c[0] for c in display_corners]
+            ys = [c[1] for c in display_corners]
+            disp_x1, disp_x2 = min(xs), max(xs)
+            disp_y1, disp_y2 = min(ys), max(ys)
+
+            cv2.rectangle(display_img, (disp_x1 , disp_y1), (disp_x2, disp_y2), (0, 255, 0), 2)
             
-            current_result = None
-            
-            if boxes:
-                # 取第一个框
-                x1, y1, x2, y2, conf = boxes[0]
-                
-                # 2. 在显示图上画框
-                cv2.rectangle(display_img, (x1, y1), (x2, y2), (255, 255, 255), 2)
-                
-                # 3. 抠图并识别
-                # 实际应为: embedding = recognizer(cropped_face)
-                embedding = recognizer.extract_dummy(ai_img) 
-                
-                # 4. 数据库比对
-                name, score = db.identify(embedding)
-                current_result = (name, score, (x1, y1, x2, y2))
+            center_tx = (x1 + x2) / 2.0
+            center_ty = (y1 + y2) / 2.0
+            label_x, label_y = theraml_point_rotate(self.rotation_angle, center_tx, center_ty, raw_w, raw_h, w, h)
+            cv2.putText(display_img, f"{temp_max:.1f}", (label_x + 10, label_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        
+    def mousePressEvent(self, event):
+        child = self.childAt(event.pos())
 
-            # E. 绘制 UI 并显示
-            final_ui = draw_ui(display_img, current_result, fps)
-            cv2.imshow("Thermal Recognition System", final_ui)
+        if child == self.video_label:
+            local_pos = self.video_label.mapFrom(self, event.pos())
+            self.measure_pos = (local_pos.x() / self.video_label.width(), #相对坐标
+                                local_pos.y() / self.video_label.height())
+        super().mousePressEvent(event)
 
-            # 注册功能 (按 'r' 键将当前人注册为 User_Timestamp)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                break
-            elif key == ord('r') and current_result:
-                new_name = f"User_{int(time.time())}"
-                # 这里的 embedding 应该是最近一次提取的特征
-                db.register_person(new_name, embedding)
+    def ensure_measure(self):
+        self.measure_h = self.measure_area_h_edit.value()
+        self.measure_w = self.measure_area_w_edit.value()
+        
 
-    finally:
-        camera.disconnect()
-        cv2.destroyAllWindows()
-        print("--- 系统关闭 ---")
+
+        

@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 # --- 修改后的代码 (使用了新文件名 + 相对引用) ---
 from .driver_util import unpack_thermal_frame
-from .viz_heatmap import process_thermal_for_display
+from .matrix_util import process_thermal_for_display
 from .driver_util import upack_YUV_frame
 
 SET_CUR = 0x01 #设置类指令
