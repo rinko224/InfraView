@@ -13,7 +13,7 @@ def unpack_thermal_frame(thermal_frame):
     data_mode, = struct.unpack_from('<I', header, 20)
     width, = struct.unpack_from('<I', header, 64)
     height, = struct.unpack_from('<I', header, 68)
-    print(f"[信息]: 流长度={stream_len}, 数据模式={data_mode}, 宽度={width}, 高度={height}")
+    # print(f"[信息]: 流长度={stream_len}, 数据模式={data_mode}, 宽度={width}, 高度={height}")
     
     pixel_data = thermal_frame[HEAD_SIZE + 4:HEAD_SIZE + stream_len]
     

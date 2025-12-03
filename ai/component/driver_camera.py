@@ -202,6 +202,47 @@ class HikCamera:
                 raise e
         return data if bytes_read >= size else None
     
+    def read_payload_strip_uvc_headers(self, expected_size, packet_chunk_size = 8192):
+        data_buffer = bytearray()
+
+        timeout_counter = 0
+        max_retries = 100
+
+        while len(data_buffer) < expected_size:
+            try:
+                raw_packet = self.device.read(self.vs_endpoint_addr, packet_chunk_size, timeout = 100)
+
+                if not raw_packet:
+                    timeout_counter += 1
+                    if timeout_counter > max_retries:
+                        print("[错误] 读取数据流超时或中断")
+                        return None
+                    continue
+
+                header_len = raw_packet[0]
+                if header_len < 2 or header_len > len(raw_packet):
+                    continue
+                header_len = 2 if header_len == 2 else 0
+                #print(f"[调试] 读取到有效包，长度: {header_len}")
+                payload = raw_packet[header_len:]
+                data_buffer.extend(payload)
+            except usb.core.USBError as e:
+                # 只有超时才忽略，其他错误抛出
+                if e.errno == 110: # ETIMEDOUT
+                    timeout_counter += 1
+                    if timeout_counter > max_retries:
+                        break
+                    continue
+                else:
+                    self.last_error = "f[错误]{e}"
+                    return None
+        if len(data_buffer) >= expected_size:
+            return data_buffer[:expected_size]
+        else:
+            print(f"[警告] 数据不足: 期望 {expected_size}, 实际 {len(data_buffer)}")
+        return None
+
+    
     def start_stream(self):
         if not self.is_connected:
             self.last_error = "未连接到设备"
@@ -274,7 +315,11 @@ class HikCamera:
             if stream_len <= 0 or yuv_len <= 0:
                 return None
             
-            data_body = self.read_from_vs_endpoint(stream_len, timeout=100)
+            data_body = self.read_payload_strip_uvc_headers(stream_len)
+            if data_body is None:
+                self.last_error = "[错误] 热成像数据体读取失败"
+                print("[错误] 热成像数据体读取失败")
+                return None
             yuv_body = self.read_from_vs_endpoint(yuv_len, timeout=100)
 
             if data_body and yuv_body:
@@ -286,14 +331,14 @@ class HikCamera:
             return None
 
     def clear_endpoint_buffer(self):
-        print("[清理]正在清空残留缓冲区.....")
+        # print("[清理]正在清空残留缓冲区.....")
         try:
             while True:
                 self.device.read(self.vs_endpoint_addr, 1024*16, timeout=10)
         except usb.core.USBError:
             pass
 
-        print("[清理]缓冲区已清空")
+        # print("[清理]缓冲区已清空")
 
 if __name__ == "__main__":
     print("--- 海康摄像头连接测试程序 ---")

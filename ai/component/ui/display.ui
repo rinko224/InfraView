@@ -59,9 +59,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="switch_2">
+      <widget class="QPushButton" name="color_mode">
        <property name="text">
-        <string>切换显示模式</string>
+        <string>设置伪彩模式</string>
        </property>
       </widget>
      </item>

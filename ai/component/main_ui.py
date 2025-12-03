@@ -43,6 +43,8 @@ class MainUI(QWidget):
         self.area_min_temp = None
         self.measure_h = None
         self.measure_w = None
+        self.color_mode = "inferno"
+        self.nodes = None
 
         # ——— 左边视频区域 ———
         self.video_label = self.ui.findChild(QLabel, "video_label")
@@ -60,6 +62,10 @@ class MainUI(QWidget):
         # ——— 旋转按钮 ———
         self.rotate_button = self.ui.findChild(QPushButton, "rotate")
         self.rotate_button.clicked.connect(self.rotate_video)
+
+        # ——— 伪彩模式设置按钮 ———
+        self.color_set = self.ui.findChild(QPushButton, "color_mode")
+        self.color_set.clicked.connect(self.set_color_map)
 
         # ——— 区域测量相关 ———
         self.measure_ensure = self.ui.findChild(QPushButton, "measure_ensure")
@@ -114,7 +120,7 @@ class MainUI(QWidget):
         out_size = (w, h)
 
         # ——— 生成展示图（彩色） ———
-        display_img = process_thermal_for_display(thermal, out_size, self.rotation_angle)
+        display_img = process_thermal_for_display(thermal, out_size, self.rotation_angle, self.color_mode, self.nodes)
 
         self._process_measurement(thermal, display_img, self.measure_h, self.measure_w)
         # ——— 生成 AI 图（灰度增强） ———
@@ -227,7 +233,9 @@ class MainUI(QWidget):
     def ensure_measure(self):
         self.measure_h = self.measure_area_h_edit.value()
         self.measure_w = self.measure_area_w_edit.value()
-        
+    
+    def set_color_map(self, color_mode):
+        self.color_mode = color_mode
 
 
         
