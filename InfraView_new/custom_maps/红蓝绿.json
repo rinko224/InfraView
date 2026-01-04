@@ -1,0 +1,30 @@
+{
+  "name": "红蓝绿",
+  "nodes": [
+    {
+      "position": 0,
+      "color": [
+        255,
+        0,
+        0
+      ]
+    },
+    {
+      "position": 128,
+      "color": [
+        0,
+        0,
+        255
+      ]
+    },
+    {
+      "position": 255,
+      "color": [
+        0,
+        255,
+        0
+      ]
+    }
+  ],
+  "type": "thermal_color_map"
+}
