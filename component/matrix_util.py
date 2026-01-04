@@ -66,12 +66,9 @@ def build_lut(color_mode, nodes=None):
 
         for (p0, c0), (p1, c1) in zip(nodes[:-1], nodes[1:]):
             p0, p1 = int(p0), int(p1)
-            # 关键修改：将RGB转换为BGR
-            # c0和c1是RGB元组，OpenCV需要BGR，所以反转顺序
             c0_bgr = np.array((c0[2], c0[1], c0[0]), dtype=np.float32)
             c1_bgr = np.array((c1[2], c1[1], c1[0]), dtype=np.float32)
 
-            # 避免除零错误
             if p1 == p0:
                 lut[p0] = c0_bgr
                 continue

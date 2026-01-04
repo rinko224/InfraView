@@ -6,7 +6,6 @@ import struct
 import cv2
 import numpy as np
 from datetime import datetime
-# --- 修改后的代码 (使用了新文件名 + 相对引用) ---
 from .driver_util import unpack_thermal_frame
 from .matrix_util import process_thermal_for_display
 from .driver_util import upack_YUV_frame
@@ -40,7 +39,7 @@ class HikCamera:
         try:
             self.device = usb.core.find(idVendor=self.vendor_id, idProduct=self.product_id)
             if self.device is None:
-                self.last_error = "设备未找到"
+                self.last_error = "设备未找到,请检查是否连接设备或查看“帮助”菜单"
                 print(f"[失败] {self.last_error}")
                 logger.error(f"{self.last_error}")
                 return False
@@ -221,7 +220,6 @@ class HikCamera:
                 if header_len < 2 or header_len > len(raw_packet):
                     continue
                 header_len = 2 if header_len == 2 else 0
-                #print(f"[调试] 读取到有效包，长度: {header_len}")
                 payload = raw_packet[header_len:]
                 data_buffer.extend(payload)
             except usb.core.USBError as e:
@@ -252,7 +250,7 @@ class HikCamera:
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id=0x05, data=payload_switch_to_thermometry)
 
             lenserp = self.send_xu_control_command(GET_LEN, UNIT_ID, cs_id=0x03, length=2)
-            payload_enable_thermometry = bytearray([0x01, 0x01]) # Channel 1, enabled=1
+            payload_enable_thermometry = bytearray([0x01, 0x01]) 
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id=0x03, data=payload_enable_thermometry)
             time.sleep(0.1)
 
@@ -261,7 +259,7 @@ class HikCamera:
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id = 0x05, data=payload_switch_to_thermometry_mode)
 
             lenserp = self.send_xu_control_command(GET_LEN, UNIT_ID, cs_id=0x03, length=2)
-            payload_set_thermometry_mode = bytearray([0x01, 0x02]) # Channel 1, mode=2
+            payload_set_thermometry_mode = bytearray([0x01, 0x02]) 
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id=0x03, data=payload_set_thermometry_mode)
             time.sleep(0.1)
 
@@ -270,7 +268,7 @@ class HikCamera:
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id=0x05, data=payload_switch_to_stream_type)
 
             lenserp = self.send_xu_control_command(GET_LEN, UNIT_ID, cs_id=0x03, length=2)
-            payload_set_stream_type = bytearray([0x01, 0x08]) # Channel 1, streamType=8
+            payload_set_stream_type = bytearray([0x01, 0x08]) 
             self.send_xu_control_command(SET_CUR, UNIT_ID, cs_id=0x03, data=payload_set_stream_type)
             time.sleep(0.1)
 
@@ -370,4 +368,4 @@ if __name__ == "__main__":
     
     camera.disconnect()
     print("\n--- 测试程序结束 ---")
-    
+#测试程序
