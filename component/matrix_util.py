@@ -2,12 +2,12 @@ import numpy as np
 import cv2
 
 PRESET_MAPS = {
-    "inferno": cv2.COLORMAP_INFERNO,   # 高对比度的暗背景火焰色系（黑→红→黄）。热像仪最常用之一，细节清晰。
-    "magma": cv2.COLORMAP_MAGMA,       # 更暗、偏紫红渐变（黑→深紫→红→黄）。对低温细节敏感，视觉柔和。
-    "jet": cv2.COLORMAP_JET,           # 经典彩虹图（蓝→青→绿→黄→红）。颜色跨度大，但易产生误解——科学上不推荐。
-    "rainbow": cv2.COLORMAP_RAINBOW,   # 平滑版彩虹色，温度分布直观，但同样不适合精确分析。
-    "turbo": cv2.COLORMAP_TURBO,       # Google 优化的“改进版彩虹图”，高线性、高保真。色彩丰富但更科学。
-    "bone": cv2.COLORMAP_BONE,         # 类灰度（灰→蓝白）。接近黑白，对结构细节友好，适合医学与工业检测。
+    "inferno": cv2.COLORMAP_INFERNO,   
+    "magma": cv2.COLORMAP_MAGMA,       
+    "jet": cv2.COLORMAP_JET,          
+    "rainbow": cv2.COLORMAP_RAINBOW,   
+    "turbo": cv2.COLORMAP_TURBO,       
+    "bone": cv2.COLORMAP_BONE,        
 }
 
 
@@ -53,10 +53,8 @@ def build_lut(color_mode, nodes=None):
             gradient = np.linspace(0, 255, 256).astype(np.uint8).reshape((1, 256))
             return cv2.applyColorMap(gradient, PRESET_MAPS["inferno"]).reshape((256, 1, 3))
         
-        # 确保节点按位置排序
         nodes = sorted(nodes, key=lambda x: x[0])
         
-        # 确保包含起点和终点（位置0和255）
         if nodes[0][0] > 0:
             nodes.insert(0, (0, nodes[0][1]))
         if nodes[-1][0] < 255:

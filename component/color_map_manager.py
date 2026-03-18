@@ -6,7 +6,6 @@ from PySide2.QtWidgets import QInputDialog, QMessageBox
 class ColorMapManager:
     def __init__(self, config_dir="custom_maps"):
         self.config_dir = config_dir
-        # 确保配置目录存在
         if not os.path.exists(self.config_dir):
             os.makedirs(self.config_dir)
     
@@ -16,22 +15,19 @@ class ColorMapManager:
         if os.path.exists(self.config_dir):
             for filename in os.listdir(self.config_dir):
                 if filename.endswith('.json'):
-                    map_name = filename[:-5]  # 去掉.json后缀
+                    map_name = filename[:-5] 
                     maps[map_name] = os.path.join(self.config_dir, filename)
         return maps
     
     def save_map(self, map_name, nodes):
         """保存颜色映射配置到文件"""
-        # 验证名称
         if not map_name or not map_name.strip():
             return False, "请输入有效的名称"
         
         map_name = map_name.strip()
         
-        # 构建文件路径
         filepath = os.path.join(self.config_dir, f"{map_name}.json")
-        
-        # 检查是否已存在
+
         if os.path.exists(filepath):
             reply = QMessageBox.question(
                 None, "覆盖确认", 
@@ -42,15 +38,13 @@ class ColorMapManager:
                 return False, "已取消保存"
         
         try:
-            # 转换为可序列化的格式
             serializable_nodes = []
             for pos, color in nodes:
                 serializable_nodes.append({
                     "position": pos,
-                    "color": color  # 已经是(r,g,b)元组
+                    "color": color  
                 })
             
-            # 保存到文件
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump({
                     "name": map_name,
@@ -74,7 +68,6 @@ class ColorMapManager:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # 转换回nodes格式
             nodes = []
             for node in data.get("nodes", []):
                 pos = node.get("position", 0)
